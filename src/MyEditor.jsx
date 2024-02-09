@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import {
   Editor,
   EditorState,
@@ -34,9 +34,6 @@ const MyEditor = () => {
     }
     return EditorState.createEmpty();
   });
-
-  
-
 
   const handleChange = (newEditorState) => {
     setEditorState(newEditorState);
@@ -88,6 +85,11 @@ const MyEditor = () => {
     return "not-handled";
   };
 
+  const [editorTextLength, setEditorTextLength] = useState(0);
+  const [editorText, setEditorText] = useState("");
+
+  const [finalContentStateJSON, setFinalContentStateJSON] = useState();
+
   const handleSave = () => {
     const contentState = editorState.getCurrentContent();
     const contentStateJson = convertToRaw(contentState);
@@ -116,6 +118,9 @@ const MyEditor = () => {
     });
 
     contentStateJson.blocks = contentWithoutSpecialChars;
+    setFinalContentStateJSON(contentStateJson);
+
+    console.log(contentStateJson);
 
     // Create new editor state with modified content
     const newEditorState = EditorState.createWithContent(
@@ -123,13 +128,46 @@ const MyEditor = () => {
     );
     setEditorState(newEditorState);
 
-    // Save content to local storage
-    localStorage.setItem(
-      "draftEditorContent",
-      JSON.stringify(contentStateJson)
-    );
-    alert("Content saved to local storage!");
+    console.log("content: ", contentStateJson);
+    console.log("content2: ", finalContentStateJSON);
   };
+
+  const finalSave = () => {
+    if (finalContentStateJSON) {
+      localStorage.setItem(
+        "draftEditorContent",
+        JSON.stringify(finalContentStateJSON)
+      );
+    }
+  };
+
+  useEffect(() => {
+    // get the length of the text in the editor
+    const text = editorState.getCurrentContent().getPlainText("");
+    setEditorText(text);
+    setEditorTextLength(text.length);
+  }, [editorState]); // Only trigger the effect when editorState changes
+
+  useEffect(() => {
+    const isTextWithSpecialChars =
+      editorText.includes("#") || editorText.includes("*");
+
+    //  if two or more asterisks are present, set variable multipleAsterisks to true
+
+    const multipleAsterisks =
+      editorText.includes("**") || editorText.includes("***");
+    if (
+      isTextWithSpecialChars &&
+      !multipleAsterisks &&
+      editorTextLength > 1 // Ignore the first character that is a special character
+    ) {
+      handleSave();
+    }
+
+    if (isTextWithSpecialChars && multipleAsterisks && editorTextLength > 3) {
+      handleSave();
+    }
+  }, [editorTextLength]);
 
   const handleBeforeInput = (chars) => {
     if (chars === " ") {
@@ -180,49 +218,12 @@ const MyEditor = () => {
     return "not-handled";
   };
 
-  // const handleBeforeInput = (chars) => {
-  //   if (chars === " ") {
-  //     let newEditorState = editorState;
-  //     if (styleChar === "#") {
-  //       newEditorState = RichUtils.toggleInlineStyle(editorState, "HEADERONE");
-  //     } else if (styleChar === "*") {
-  //       newEditorState = RichUtils.toggleInlineStyle(editorState, "BOLD");
-  //     } else if (styleChar === "**") {
-  //       newEditorState = RichUtils.toggleInlineStyle(editorState, "REDLINE");
-  //     } else if (styleChar === "***") {
-  //       newEditorState = RichUtils.toggleInlineStyle(editorState, "UNDERLINE");
-  //     }
-
-  //     if (newEditorState !== editorState) {
-  //       const selection = newEditorState.getSelection();
-  //       const content = newEditorState.getCurrentContent();
-  //       const newContent = Modifier.removeRange(content, selection, "backward");
-  //       const newSelection = newContent.getSelectionAfter();
-  //       const block = newContent.getBlockForKey(newSelection.getStartKey());
-  //       const newData = block.getData().delete(styleChar);
-  //       const newBlock = block.merge({ data: newData });
-  //       const newContentFinal = newContent.merge({
-  //         blockMap: newContent
-  //           .getBlockMap()
-  //           .set(newSelection.getStartKey(), newBlock),
-  //         selectionAfter: newSelection,
-  //       });
-  //       setEditorState(
-  //         EditorState.push(newEditorState, newContentFinal, "remove-range")
-  //       );
-  //       setStyleChar(null);
-  //       return "handled";
-  //     }
-  //   } else if ("#*".includes(chars)) {
-  //     setStyleChar(styleChar ? styleChar + chars : chars);
-  //   }
-  //   return "not-handled";
-  // };
   return (
     <div className="w-full mx-auto px-4 py-8 border-4 border-slate-300 relative rounded-xl">
       <button
         className="font-bold py-2 px-4 rounded absolute top-2 right-9 bg-rose-500 text-white hover:bg-rose-600 transition-all duration-300 ease-in-out"
-        onClick={handleSave}
+        // onClick={handleSave}
+        onClick={finalSave}
       >
         Save
       </button>
