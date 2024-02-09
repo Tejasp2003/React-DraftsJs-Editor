@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Editor,
   EditorState,
@@ -35,14 +35,8 @@ const MyEditor = () => {
     return EditorState.createEmpty();
   });
 
-  useEffect(() => {
-    const contentState = editorState.getCurrentContent();
-    const contentStateJson = convertToRaw(contentState);
-    localStorage.setItem(
-      "draftEditorContent",
-      JSON.stringify(contentStateJson)
-    );
-  }, [editorState]);
+  
+
 
   const handleChange = (newEditorState) => {
     setEditorState(newEditorState);
@@ -97,6 +91,39 @@ const MyEditor = () => {
   const handleSave = () => {
     const contentState = editorState.getCurrentContent();
     const contentStateJson = convertToRaw(contentState);
+    const contentWithoutSpecialChars = contentStateJson.blocks.map((block) => {
+      // Replace special characters while preserving inline styles
+      let newText = block.text.replace(/#|\*|\*\*|\*\*\*/g, "");
+      let newInlineStyleRanges = block.inlineStyleRanges;
+
+      // Adjust inline style ranges due to removed characters
+      if (newText.length !== block.text.length) {
+        const removedCharsCount = block.text.length - newText.length;
+        newInlineStyleRanges = block.inlineStyleRanges.map((range) => ({
+          ...range,
+          offset:
+            range.offset >= removedCharsCount
+              ? range.offset - removedCharsCount
+              : 0,
+        }));
+      }
+
+      return {
+        ...block,
+        text: newText,
+        inlineStyleRanges: newInlineStyleRanges,
+      };
+    });
+
+    contentStateJson.blocks = contentWithoutSpecialChars;
+
+    // Create new editor state with modified content
+    const newEditorState = EditorState.createWithContent(
+      convertFromRaw(contentStateJson)
+    );
+    setEditorState(newEditorState);
+
+    // Save content to local storage
     localStorage.setItem(
       "draftEditorContent",
       JSON.stringify(contentStateJson)

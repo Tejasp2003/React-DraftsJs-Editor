@@ -1,5 +1,8 @@
 
-import MyEditor from './MyEditor';
+// import MarkdownEditor from './MyEditor';
+// import MyEditor from './MyEditor';
+
+import Layout from "./MyEditor";
 
 const App = () => {
   return (
@@ -9,7 +12,7 @@ const App = () => {
       <h1
       className='font-semibold text-xl m-5 text-center w-full'
       >Demo editor by Tejas</h1>
-      <MyEditor />
+      <Layout />
     </div>
   );
 };
