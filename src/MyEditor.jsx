@@ -85,17 +85,12 @@ const MyEditor = () => {
     return "not-handled";
   };
 
-  const [editorTextLength, setEditorTextLength] = useState(0);
-  const [editorText, setEditorText] = useState("");
-
-  const [finalContentStateJSON, setFinalContentStateJSON] = useState();
-
   const handleSave = () => {
-    const contentState = editorState.getCurrentContent();
-    const contentStateJson = convertToRaw(contentState);
-    const contentWithoutSpecialChars = contentStateJson.blocks.map((block) => {
+    let contentState = editorState.getCurrentContent();
+    let contentStateJson = convertToRaw(contentState);
+    let contentWithoutSpecialChars = contentStateJson.blocks.map((block) => {
       // Replace special characters while preserving inline styles
-      let newText = block.text.replace(/#|\*|\*\*|\*\*\*/g, "");
+      let newText = block.text.replace(/#|\*|\*\*\*/g, "");
       let newInlineStyleRanges = block.inlineStyleRanges;
 
       // Adjust inline style ranges due to removed characters
@@ -118,9 +113,6 @@ const MyEditor = () => {
     });
 
     contentStateJson.blocks = contentWithoutSpecialChars;
-    setFinalContentStateJSON(contentStateJson);
-
-    console.log(contentStateJson);
 
     // Create new editor state with modified content
     const newEditorState = EditorState.createWithContent(
@@ -128,46 +120,56 @@ const MyEditor = () => {
     );
     setEditorState(newEditorState);
 
-    console.log("content: ", contentStateJson);
-    console.log("content2: ", finalContentStateJSON);
+    localStorage.setItem(
+      "draftEditorContent",
+      JSON.stringify(contentStateJson)
+    );
   };
 
-  const finalSave = () => {
-    if (finalContentStateJSON) {
-      localStorage.setItem(
-        "draftEditorContent",
-        JSON.stringify(finalContentStateJSON)
+  useEffect(() => {
+    const contentState = editorState.getCurrentContent();
+    const blocks = contentState.getBlockMap();
+
+    let newContentState = contentState;
+
+    blocks.forEach((block, blockKey) => {
+      let newText = block.getText();
+      let hasChanges = false;
+
+      // Remove special characters from the text
+      newText = newText.replace(/#|\*|\*\*\*/g, "");
+
+      // Check if the block ends with a special character
+      if (["#", "*", "**", "***"].includes(newText.slice(-1))) {
+        // If it does, remove the special character
+        newText = newText.slice(0, -1);
+        hasChanges = true;
+      }
+
+      // If there were changes, update the block in the content state
+      if (hasChanges) {
+        const newBlock = block.merge({ text: newText });
+        newContentState = newContentState.merge({
+          blockMap: blocks.set(blockKey, newBlock),
+        });
+      }
+    });
+
+    
+
+   
+
+
+    // Update the editor state with the modified content state
+    if (newContentState !== contentState) {
+      const newEditorState = EditorState.push(
+        editorState,
+        newContentState,
+        "remove-range"
       );
+      setEditorState(newEditorState);
     }
-  };
-
-  useEffect(() => {
-    // get the length of the text in the editor
-    const text = editorState.getCurrentContent().getPlainText("");
-    setEditorText(text);
-    setEditorTextLength(text.length);
-  }, [editorState]); // Only trigger the effect when editorState changes
-
-  useEffect(() => {
-    const isTextWithSpecialChars =
-      editorText.includes("#") || editorText.includes("*");
-
-    //  if two or more asterisks are present, set variable multipleAsterisks to true
-
-    const multipleAsterisks =
-      editorText.includes("**") || editorText.includes("***");
-    if (
-      isTextWithSpecialChars &&
-      !multipleAsterisks &&
-      editorTextLength > 1 // Ignore the first character that is a special character
-    ) {
-      handleSave();
-    }
-
-    if (isTextWithSpecialChars && multipleAsterisks && editorTextLength > 3) {
-      handleSave();
-    }
-  }, [editorTextLength]);
+  }, [editorState]);
 
   const handleBeforeInput = (chars) => {
     if (chars === " ") {
@@ -223,7 +225,7 @@ const MyEditor = () => {
       <button
         className="font-bold py-2 px-4 rounded absolute top-2 right-9 bg-rose-500 text-white hover:bg-rose-600 transition-all duration-300 ease-in-out"
         // onClick={handleSave}
-        onClick={finalSave}
+        onClick={handleSave}
       >
         Save
       </button>
